@@ -1,0 +1,51 @@
+name: Deploy to AKS Cluster
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: Azure/docker-login@v1
+      with:
+        login-server: angularacrrepo.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+    
+    - run: |
+        docker build . -t angularacrrepo.azurecr.io/angularimage:${{ github.sha }}
+        docker push angularacrrepo.azurecr.io/angularimage:${{ github.sha }}
+      
+    # Set the target AKS cluster.
+    - name: 'Log into Azure using github secret AZURE_CREDENTIALS'
+      uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        enable-AzPSSession: true
+        
+    - uses: Azure/aks-set-context@v1
+      with:
+        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+        cluster-name: myangularaks
+        resource-group: myresourcegroup
+        
+    - uses: Azure/k8s-create-secret@v1
+      with:
+        container-registry-url: angularacrrepo.azurecr.io
+        container-registry-username: ${{ secrets.ACR_USERNAME }}
+        container-registry-password: ${{ secrets.ACR_PASSWORD }}
+        secret-name: k8s-secret
+
+    - uses: Azure/k8s-deploy@v1
+      with:
+        manifests: |
+          manifests/deployment.yaml
+          manifests/service.yaml
+        images: |
+          angularacrrepo.azurecr.io/angularimage:${{ github.sha }}
+        imagepullsecrets: |
+          k8s-secret
