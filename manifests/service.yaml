@@ -7,6 +7,6 @@ spec:
     app: angular-app
   ports:
     - protocol: TCP
-      port: 4200
-      targetPort: 4200
+      port: 80
+      targetPort: 80
   type: LoadBalancer
